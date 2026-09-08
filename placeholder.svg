@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" role="img" aria-labelledby="title">
+  <title id="title">Photo placeholder</title>
+  <rect width="400" height="200" fill="#dbe4ec"/>
+  <circle cx="310" cy="55" r="24" fill="#f7c873"/>
+  <path d="M0 175 105 78l72 66 45-40 178 71v25H0Z" fill="#83a598"/>
+  <path d="m0 190 95-70 65 48 64-38 176 60v10H0Z" fill="#52796f"/>
+  <text x="200" y="105" fill="#243b53" font-family="Arial, sans-serif" font-size="22" text-anchor="middle">Your photo</text>
+</svg>
