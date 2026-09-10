@@ -22,11 +22,11 @@ body {
     border-radius: 8px;
     background: white;
     box-shadow: 0 4px 6px rgb(0 0 0 / 10%);
-    transition: outline 0.3s ease;
+    transition: box-shadow 0.3s ease;
 }
 
 .card:hover {
-    outline: 3px solid #ff6b6b;
+    box-shadow: 0 0 0 3px #ff6b6b, 0 4px 6px rgb(0 0 0 / 10%);
 }
 
 .card img {
