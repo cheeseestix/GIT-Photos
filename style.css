@@ -23,11 +23,13 @@ body {
     background: white;
     box-shadow: 0 4px 6px rgb(0 0 0 / 10%);
     border: 3px solid transparent;
-    transition: border-color 0.3s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card:hover {
-    border-color: #ff0000;
+    border-color: #e11d48;
+    box-shadow: 0 6px 14px rgb(225 29 72 / 28%);
+    cursor: pointer;
 }
 
 .card img {
