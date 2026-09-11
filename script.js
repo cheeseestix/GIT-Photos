@@ -1,6 +1,6 @@
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
-  // Modal for enlarged image view
+  // Create modal elements
   const modal = document.createElement('div');
   modal.id = 'imageModal';
   modal.style.cssText = `
@@ -17,32 +17,39 @@ document.addEventListener('DOMContentLoaded', function() {
     flex-direction: column;
   `;
 
+  const modalContent = document.createElement('div');
+  modalContent.style.textAlign = 'center';
+  
   const modalImg = document.createElement('img');
   modalImg.id = 'modalImage';
   modalImg.style.maxWidth = '80%';
-  modalImg.style.maxHeight = '70%';
+  modalImg.style.maxHeight = '70vh';
   modalImg.style.borderRadius = '8px';
-  modal.appendChild(modalImg);
+  modalContent.appendChild(modalImg);
 
   const modalText = document.createElement('div');
   modalText.id = 'modalText';
   modalText.style.color = 'white';
   modalText.style.marginTop = '20px';
   modalText.style.fontSize = '1.5rem';
-  modalText.style.textAlign = 'center';
   modalText.style.padding = '0 20px';
-  modal.appendChild(modalText);
-
+  modalContent.appendChild(modalText);
+  
+  modal.appendChild(modalContent);
   document.body.appendChild(modal);
 
-  // Close modal when clicking
-  modal.onclick = () => {
-    modal.style.display = 'none';
+  // Close modal only when clicking on the background (not the content)
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      modal.style.display = 'none';
+    }
   };
 
   // Add click handlers to all cards
   document.querySelectorAll('.card').forEach(card => {
-    card.onclick = () => {
+    card.style.cursor = 'pointer';
+    card.onclick = (e) => {
+      e.stopPropagation();
       const img = card.querySelector('img');
       const description = card.querySelector('h3');
       
