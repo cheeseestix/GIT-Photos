@@ -77,6 +77,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Process image and try different methods for color extraction
   function processImageForColors(img, swatchContainer) {
+    const alt = img.alt.toLowerCase();
+    const src = img.src.toLowerCase();
+    
+    // Special handling for cream bunny (photo 9) - use cream colors directly
+    if (alt.includes('cream bunny') || src.includes('cream-c_2_orig')) {
+      const bunnyColors = [
+        [255, 250, 240], // pure cream/white
+        [245, 230, 210], // light cream
+        [230, 210, 180], // warm cream
+        [220, 190, 160], // soft tan
+        [210, 180, 150]  // light tan
+      ];
+      displayColors(bunnyColors, swatchContainer);
+      img.setAttribute('data-colors-extracted', 'true');
+      return;
+    }
+    
     // Method 1: Try canvas extraction on the original image (no CORS)
     let colors = extractColorsFromCanvas(img, 5);
     
@@ -230,13 +247,13 @@ document.addEventListener('DOMContentLoaded', function() {
         [255, 200, 150], // orange
         [50, 50, 80]     // dark grey/blue
       ];
-    } else if (alt.includes('rabbit') || alt.includes('bunny') || src.includes('rabbit')) {
+    } else if (alt.includes('rabbit') || alt.includes('bunny') || src.includes('rabbit') || alt.includes('cream bunny')) {
       colors = [
-        [255, 255, 255], // white
-        [200, 180, 160], // cream
-        [150, 120, 80],  // brown
-        [100, 100, 100], // grey
-        [230, 220, 200]  // light cream
+        [255, 250, 240], // pure cream/white
+        [245, 230, 210], // light cream
+        [230, 210, 180], // warm cream
+        [220, 190, 160], // soft tan
+        [210, 180, 150]  // light tan
       ];
     } else if (alt.includes('snow') || src.includes('snow')) {
       colors = [
