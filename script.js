@@ -89,16 +89,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const alt = img.alt.toLowerCase();
     const src = img.src.toLowerCase();
     
-    // Special handling for cream bunny (photo 9) - use cream colors directly
+    // Special handling for cream bunny (photo 9) - use cream colors directly with variation
     if (alt.includes('cream bunny') || src.includes('cream-c_2_orig')) {
-      const bunnyColors = [
-        [255, 250, 240], // pure cream/white
-        [245, 230, 210], // light cream
-        [230, 210, 180], // warm cream
-        [220, 190, 160], // soft tan
-        [210, 180, 150]  // light tan
+      const baseColors = [
+        [255, 250, 240], [245, 230, 210], [230, 210, 180], [220, 190, 160], [210, 180, 150],
+        [255, 248, 235], [240, 225, 205], [235, 215, 190], [225, 200, 170], [215, 195, 170]
       ];
-      displayColors(bunnyColors, swatchContainer);
+      // Shuffle and pick 5 random cream shades
+      const shuffled = [...baseColors].sort(() => Math.random() - 0.5);
+      displayColors(shuffled.slice(0, 5), swatchContainer);
       img.setAttribute('data-colors-extracted', 'true');
       return;
     }
@@ -117,11 +116,29 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
         const colorThief = new ColorThief();
         colors = colorThief.getPalette(img, 5);
-        displayColors(colors, swatchContainer);
-        img.setAttribute('data-colors-extracted', 'true');
-        return;
+        if (colors && colors.length === 5) {
+          displayColors(colors, swatchContainer);
+          img.setAttribute('data-colors-extracted', 'true');
+          return;
+        }
       } catch (e) {
         console.log('Color Thief failed:', e);
+      }
+    }
+    
+    // Method 2b: Try Color Thief with different quality settings for variation
+    if (typeof ColorThief !== 'undefined') {
+      try {
+        const colorThief = new ColorThief();
+        const quality = Math.floor(Math.random() * 5) + 1; // Random quality 1-5
+        colors = colorThief.getPalette(img, 5, quality);
+        if (colors && colors.length === 5) {
+          displayColors(colors, swatchContainer);
+          img.setAttribute('data-colors-extracted', 'true');
+          return;
+        }
+      } catch (e) {
+        console.log('Color Thief with quality failed:', e);
       }
     }
     
@@ -137,8 +154,8 @@ document.addEventListener('DOMContentLoaded', function() {
     corsImg.src = img.src;
     
     let timeout = setTimeout(() => {
-      // If CORS image doesn't load within 3 seconds, use fallback
-      displayFallbackColorsBasedOnSrc(img, swatchContainer);
+      // If CORS image doesn't load within 3 seconds, use fallback with variation
+      displayFallbackColorsBasedOnSrc(img, swatchContainer, true);
       img.setAttribute('data-colors-extracted', 'true');
     }, 3000);
     
@@ -156,24 +173,27 @@ document.addEventListener('DOMContentLoaded', function() {
       if (typeof ColorThief !== 'undefined') {
         try {
           const colorThief = new ColorThief();
-          colors = colorThief.getPalette(corsImg, 5);
-          displayColors(colors, swatchContainer);
-          img.setAttribute('data-colors-extracted', 'true');
-          return;
+          const quality = Math.floor(Math.random() * 5) + 1;
+          colors = colorThief.getPalette(corsImg, 5, quality);
+          if (colors && colors.length === 5) {
+            displayColors(colors, swatchContainer);
+            img.setAttribute('data-colors-extracted', 'true');
+            return;
+          }
         } catch (e) {
           console.log('Color Thief on CORS failed:', e);
         }
       }
       
-      // Use fallback
-      displayFallbackColorsBasedOnSrc(img, swatchContainer);
+      // Use fallback with variation
+      displayFallbackColorsBasedOnSrc(img, swatchContainer, true);
       img.setAttribute('data-colors-extracted', 'true');
     };
     
     corsImg.onerror = function() {
       clearTimeout(timeout);
-      // CORS failed, use fallback
-      displayFallbackColorsBasedOnSrc(img, swatchContainer);
+      // CORS failed, use fallback with variation
+      displayFallbackColorsBasedOnSrc(img, swatchContainer, true);
       img.setAttribute('data-colors-extracted', 'true');
     };
   }
@@ -233,50 +253,51 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Fallback: generate colors based on image URL/alt text
-  function displayFallbackColorsBasedOnSrc(img, container) {
+  function displayFallbackColorsBasedOnSrc(img, container, useRandom = false) {
     const alt = img.alt.toLowerCase();
     const src = img.src.toLowerCase();
     
     let colors = [];
     
+    // Define color pools for each category
+    const dogColors = [
+      [210, 180, 140], [139, 69, 19], [255, 255, 255], [0, 0, 0], [210, 160, 100],
+      [180, 140, 90], [100, 80, 50], [230, 200, 160], [160, 120, 80], [200, 150, 100]
+    ];
+    const catColors = [
+      [255, 255, 255], [100, 100, 100], [0, 0, 0], [255, 200, 150], [50, 50, 80],
+      [80, 80, 80], [200, 150, 100], [255, 220, 180], [40, 40, 60], [120, 120, 120]
+    ];
+    const rabbitColors = [
+      [255, 250, 240], [245, 230, 210], [230, 210, 180], [220, 190, 160], [210, 180, 150],
+      [255, 248, 235], [240, 225, 205], [235, 215, 190], [225, 200, 170], [215, 195, 170]
+    ];
+    const snowColors = [
+      [255, 255, 255], [240, 240, 240], [200, 200, 200], [150, 150, 150], [100, 150, 200],
+      [230, 240, 255], [180, 200, 220], [200, 210, 230], [150, 170, 190], [120, 140, 160]
+    ];
+    const defaultColors = [
+      [200, 200, 200], [150, 150, 150], [100, 100, 100], [50, 50, 50], [25, 25, 25],
+      [180, 180, 180], [120, 120, 120], [80, 80, 80], [40, 40, 40], [10, 10, 10]
+    ];
+    
+    // Helper to get random selection
+    const getRandomColors = (pool, count) => {
+      const shuffled = [...pool].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, count);
+    };
+    
     // Try to infer colors from alt text or URL
     if (alt.includes('dog') || alt.includes('puppy') || src.includes('dog')) {
-      colors = [
-        [210, 180, 140], // tan
-        [139, 69, 19],   // brown
-        [255, 255, 255], // white
-        [0, 0, 0],       // black
-        [210, 160, 100]  // light brown
-      ];
+      colors = useRandom ? getRandomColors(dogColors, 5) : dogColors.slice(0, 5);
     } else if (alt.includes('cat') || src.includes('cat')) {
-      colors = [
-        [255, 255, 255], // white
-        [100, 100, 100], // grey
-        [0, 0, 0],       // black
-        [255, 200, 150], // orange
-        [50, 50, 80]     // dark grey/blue
-      ];
+      colors = useRandom ? getRandomColors(catColors, 5) : catColors.slice(0, 5);
     } else if (alt.includes('rabbit') || alt.includes('bunny') || src.includes('rabbit') || alt.includes('cream bunny')) {
-      colors = [
-        [255, 250, 240], // pure cream/white
-        [245, 230, 210], // light cream
-        [230, 210, 180], // warm cream
-        [220, 190, 160], // soft tan
-        [210, 180, 150]  // light tan
-      ];
+      colors = useRandom ? getRandomColors(rabbitColors, 5) : rabbitColors.slice(0, 5);
     } else if (alt.includes('snow') || src.includes('snow')) {
-      colors = [
-        [255, 255, 255], // white
-        [240, 240, 240], // light grey
-        [200, 200, 200], // medium grey
-        [150, 150, 150], // dark grey
-        [100, 150, 200]  // blue tint
-      ];
+      colors = useRandom ? getRandomColors(snowColors, 5) : snowColors.slice(0, 5);
     } else {
-      // Default fallback
-      colors = [
-        [200, 200, 200], [150, 150, 150], [100, 100, 100], [50, 50, 50], [25, 25, 25]
-      ];
+      colors = useRandom ? getRandomColors(defaultColors, 5) : defaultColors.slice(0, 5);
     }
     
     displayColors(colors, container);
