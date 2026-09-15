@@ -334,9 +334,21 @@ document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.card').forEach(card => {
     const img = card.querySelector('img');
     const swatchContainer = card.querySelector('.color-swatches');
+    const refreshBtn = card.querySelector('.refresh-palette');
     
     if (img && swatchContainer && img.getAttribute('data-colors-extracted') === 'false') {
       extractAndDisplayColors(img, swatchContainer);
+    }
+
+    // Add click handlers to refresh buttons
+    if (refreshBtn) {
+      refreshBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (img) {
+          img.setAttribute('data-colors-extracted', 'false');
+          extractAndDisplayColors(img, swatchContainer);
+        }
+      };
     }
 
     // Add click handlers to all cards
