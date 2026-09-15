@@ -103,18 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const alt = img.alt.toLowerCase();
     const src = img.src.toLowerCase();
     
-    // Special handling for cream bunny (photo 9) - use cream colors directly with variation
-    if (alt.includes('cream bunny') || src.includes('cream-c_2_orig')) {
-      const baseColors = [
-        [255, 250, 240], [245, 230, 210], [230, 210, 180], [220, 190, 160], [210, 180, 150],
-        [255, 248, 235], [240, 225, 205], [235, 215, 190], [225, 200, 170], [215, 195, 170]
-      ];
-      // Shuffle and pick 5 random cream shades
-      const shuffled = [...baseColors].sort(() => Math.random() - 0.5);
-      displayColors(shuffled.slice(0, 5), swatchContainer);
-      img.setAttribute('data-colors-extracted', 'true');
-      return;
-    }
+
     
     // Method 1: Try canvas extraction on the original image (no CORS)
     let colors = extractColorsFromCanvas(img, 5);
@@ -306,7 +295,7 @@ document.addEventListener('DOMContentLoaded', function() {
       colors = useRandom ? getRandomColors(dogColors, 5) : dogColors.slice(0, 5);
     } else if (alt.includes('cat') || src.includes('cat')) {
       colors = useRandom ? getRandomColors(catColors, 5) : catColors.slice(0, 5);
-    } else if (alt.includes('rabbit') || alt.includes('bunny') || src.includes('rabbit') || alt.includes('cream bunny')) {
+    } else if (alt.includes('rabbit') || alt.includes('bunny') || src.includes('rabbit')) {
       colors = useRandom ? getRandomColors(rabbitColors, 5) : rabbitColors.slice(0, 5);
     } else if (alt.includes('snow') || src.includes('snow')) {
       colors = useRandom ? getRandomColors(snowColors, 5) : snowColors.slice(0, 5);
