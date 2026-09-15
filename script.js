@@ -29,8 +29,17 @@ document.addEventListener('DOMContentLoaded', function() {
       // Simple color quantization: sample pixels and group similar colors
       const colorMap = {};
       const sampleSize = Math.max(1, Math.floor(Math.sqrt(canvas.width * canvas.height) / 10));
+      const totalPixels = data.length / 4;
       
-      for (let i = 0; i < data.length; i += 4 * sampleSize) {
+      // Generate random pixel indices to sample for varied results on refresh
+      const sampledIndices = [];
+      const numSamples = Math.min(500, Math.floor(totalPixels / sampleSize));
+      for (let s = 0; s < numSamples; s++) {
+        sampledIndices.push(Math.floor(Math.random() * totalPixels));
+      }
+      
+      for (let idx of sampledIndices) {
+        const i = idx * 4;
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
