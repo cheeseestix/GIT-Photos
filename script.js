@@ -25,45 +25,59 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
-      
-      // Simple color quantization: sample pixels and group similar colors
-      const colorMap = {};
-      const sampleSize = Math.max(1, Math.floor(Math.sqrt(canvas.width * canvas.height) / 10));
       const totalPixels = data.length / 4;
       
-      // Generate random pixel indices to sample for varied results on refresh
-      const sampledIndices = [];
-      const numSamples = Math.min(500, Math.floor(totalPixels / sampleSize));
-      for (let s = 0; s < numSamples; s++) {
-        sampledIndices.push(Math.floor(Math.random() * totalPixels));
-      }
-      
-      for (let idx of sampledIndices) {
-        const i = idx * 4;
+      // Collect all valid (non-transparent) pixels
+      const validPixels = [];
+      for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
         const a = data[i + 3];
-        
-        // Skip transparent pixels
-        if (a < 200) continue;
-        
-        // Quantize colors to reduce noise (round to nearest 32)
-        const qr = Math.floor(r / 32) * 32;
-        const qg = Math.floor(g / 32) * 32;
-        const qb = Math.floor(b / 32) * 32;
-        
-        const colorKey = `${qr},${qg},${qb}`;
-        colorMap[colorKey] = (colorMap[colorKey] || 0) + 1;
+        if (a >= 200) {
+          validPixels.push([r, g, b]);
+        }
       }
       
-      // Sort colors by frequency and get top colors
-      const sortedColors = Object.entries(colorMap)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, count)
-        .map(([color]) => color.split(',').map(Number));
+      if (validPixels.length < count) return null;
       
-      return sortedColors.length === count ? sortedColors : null;
+      // Select count distinct colors, prioritizing unique ones
+      const selectedColors = [];
+      const usedColors = new Set();
+      
+      // Keep trying random pixels until we have enough unique colors
+      const maxAttempts = 1000;
+      for (let attempt = 0; attempt < maxAttempts && selectedColors.length < count; attempt++) {
+        const randomIdx = Math.floor(Math.random() * validPixels.length);
+        const color = validPixels[randomIdx];
+        const colorKey = color.join(',');
+        
+        // Check if this color is too similar to already selected ones
+        let isUnique = true;
+        for (const selected of selectedColors) {
+          const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
+          if (diff < 40) { // Colors are too similar
+            isUnique = false;
+            break;
+          }
+        }
+        
+        if (isUnique && !usedColors.has(colorKey)) {
+          selectedColors.push(color);
+          usedColors.add(colorKey);
+        }
+      }
+      
+      // If we couldn't find enough unique colors, just pick random ones
+      if (selectedColors.length < count) {
+        while (selectedColors.length < count && validPixels.length > 0) {
+          const randomIdx = Math.floor(Math.random() * validPixels.length);
+          selectedColors.push(validPixels[randomIdx]);
+          validPixels.splice(randomIdx, 1);
+        }
+      }
+      
+      return selectedColors.length === count ? selectedColors : null;
     } catch (e) {
       return null;
     }
