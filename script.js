@@ -52,70 +52,31 @@ document.addEventListener('DOMContentLoaded', function() {
       extractionSeeds.set(imgSrc, seed);
       
       // Use seed-based random selection to get different colors each time
-      // We'll sample from different regions based on the seed
+      // Sample from the ENTIRE image (including background) to capture all colors
       const selectedColors = [];
-      const usedIndices = new Set();
       
-      // Divide image into a grid and sample from different cells
-      const gridSize = Math.ceil(Math.sqrt(count * 2));
-      const cellWidth = Math.ceil(canvas.width / gridSize);
-      const cellHeight = Math.ceil(canvas.height / gridSize);
+      // Strategy: divide image into regions and sample from each
+      // This ensures we get colors from different parts of the image
+      const regions = count * 2; // More regions than colors needed
+      const regionWidth = Math.ceil(canvas.width / regions);
       
-      // Start from a different offset each time based on seed
-      const startCell = seed % (gridSize * gridSize);
+      // Use seed to determine starting point for sampling
+      const startX = (seed % regions) * regionWidth;
       
-      let cellIndex = startCell;
+      let currentX = startX;
       let attempts = 0;
-      const maxCells = gridSize * gridSize;
+      const maxAttempts = regions * 3;
       
-      while (selectedColors.length < count && attempts < maxCells * 2) {
-        const row = Math.floor(cellIndex / gridSize);
-        const col = cellIndex % gridSize;
+      while (selectedColors.length < count && attempts < maxAttempts) {
+        // Pick a random Y position (full height)
+        const randomY = Math.floor(Math.random() * canvas.height);
+        const idx = (randomY * canvas.width + currentX) * 4;
         
-        const startX = col * cellWidth;
-        const endX = Math.min((col + 1) * cellWidth, canvas.width);
-        const startY = row * cellHeight;
-        const endY = Math.min((row + 1) * cellHeight, canvas.height);
-        
-        // Sample a random pixel from this cell
-        if (endX > startX && endY > startY) {
-          const randomX = startX + Math.floor(Math.random() * (endX - startX));
-          const randomY = startY + Math.floor(Math.random() * (endY - startY));
-          const idx = (randomY * canvas.width + randomX) * 4;
+        // Check bounds and opacity
+        if (idx + 2 < data.length && data[idx + 3] >= 200) {
+          const color = [data[idx], data[idx + 1], data[idx + 2]];
           
-          // Check bounds
-          if (idx + 2 < data.length && data[idx + 3] >= 200) {
-            const color = [data[idx], data[idx + 1], data[idx + 2]];
-            const colorKey = color.join(',');
-            
-            // Check if this color is too similar to already selected ones
-            let isUnique = true;
-            for (const selected of selectedColors) {
-              const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
-              if (diff < 40) {
-                isUnique = false;
-                break;
-              }
-            }
-            
-            if (isUnique) {
-              selectedColors.push(color);
-            }
-          }
-        }
-        
-        cellIndex = (cellIndex + 1) % (gridSize * gridSize);
-        attempts++;
-      }
-      
-      // If we still don't have enough, pick random pixels
-      if (selectedColors.length < count) {
-        const remaining = count - selectedColors.length;
-        for (let i = 0; i < remaining && validPixels.length > 0; i++) {
-          const randomIdx = Math.floor(Math.random() * validPixels.length);
-          const color = validPixels[randomIdx];
-          
-          // Check uniqueness
+          // Check if this color is too similar to already selected ones
           let isUnique = true;
           for (const selected of selectedColors) {
             const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
@@ -129,9 +90,66 @@ document.addEventListener('DOMContentLoaded', function() {
             selectedColors.push(color);
           }
         }
+        
+        // Move to next region
+        currentX = (currentX + regionWidth) % canvas.width;
+        attempts++;
       }
       
-      // If still not enough, just take the first available
+      // If we still don't have enough unique colors, sample more broadly
+      if (selectedColors.length < count) {
+        // Try sampling from corners and center for more diversity
+        const samplePoints = [
+          { x: 0, y: 0 }, // Top-left
+          { x: canvas.width - 1, y: 0 }, // Top-right
+          { x: 0, y: canvas.height - 1 }, // Bottom-left
+          { x: canvas.width - 1, y: canvas.height - 1 }, // Bottom-right
+          { x: Math.floor(canvas.width / 2), y: Math.floor(canvas.height / 2) }, // Center
+          { x: Math.floor(canvas.width / 4), y: Math.floor(canvas.height / 4) },
+          { x: Math.floor(canvas.width * 3/4), y: Math.floor(canvas.height / 4) },
+          { x: Math.floor(canvas.width / 4), y: Math.floor(canvas.height * 3/4) },
+          { x: Math.floor(canvas.width * 3/4), y: Math.floor(canvas.height * 3/4) }
+        ];
+        
+        for (const point of samplePoints) {
+          if (selectedColors.length >= count) break;
+          const idx = (point.y * canvas.width + point.x) * 4;
+          if (idx + 2 < data.length && data[idx + 3] >= 200) {
+            const color = [data[idx], data[idx + 1], data[idx + 2]];
+            let isUnique = true;
+            for (const selected of selectedColors) {
+              const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
+              if (diff < 40) {
+                isUnique = false;
+                break;
+              }
+            }
+            if (isUnique) {
+              selectedColors.push(color);
+            }
+          }
+        }
+      }
+      
+      // If still not enough, pick from validPixels with uniqueness check
+      if (selectedColors.length < count) {
+        for (let i = 0; i < validPixels.length && selectedColors.length < count; i++) {
+          const color = validPixels[i];
+          let isUnique = true;
+          for (const selected of selectedColors) {
+            const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
+            if (diff < 40) {
+              isUnique = false;
+              break;
+            }
+          }
+          if (isUnique) {
+            selectedColors.push(color);
+          }
+        }
+      }
+      
+      // Last resort: just take first available colors
       if (selectedColors.length < count) {
         for (let i = 0; i < validPixels.length && selectedColors.length < count; i++) {
           selectedColors.push(validPixels[i]);
