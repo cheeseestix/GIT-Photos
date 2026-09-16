@@ -7,8 +7,9 @@ document.addEventListener('DOMContentLoaded', function() {
   document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d');
 
-  // Store previous palettes to ensure new ones are different
+  // Store previous palettes and extraction seeds to ensure new ones are different
   const previousPalettes = new Map();
+  const extractionSeeds = new Map();
 
   // Function to extract dominant colors from an image using canvas
   function extractColorsFromCanvas(img, count = 5) {
@@ -44,39 +45,96 @@ document.addEventListener('DOMContentLoaded', function() {
       
       if (validPixels.length < count) return null;
       
-      // Select count distinct colors, prioritizing unique ones
-      const selectedColors = [];
-      const usedColors = new Set();
+      // Get seed for this image to ensure different extractions each time
+      const imgSrc = img.src;
+      let seed = extractionSeeds.get(imgSrc) || 0;
+      seed = (seed + 1) % 1000;
+      extractionSeeds.set(imgSrc, seed);
       
-      // Keep trying random pixels until we have enough unique colors
-      const maxAttempts = 1000;
-      for (let attempt = 0; attempt < maxAttempts && selectedColors.length < count; attempt++) {
-        const randomIdx = Math.floor(Math.random() * validPixels.length);
-        const color = validPixels[randomIdx];
-        const colorKey = color.join(',');
+      // Use seed-based random selection to get different colors each time
+      // We'll sample from different regions based on the seed
+      const selectedColors = [];
+      const usedIndices = new Set();
+      
+      // Divide image into a grid and sample from different cells
+      const gridSize = Math.ceil(Math.sqrt(count * 2));
+      const cellWidth = Math.ceil(canvas.width / gridSize);
+      const cellHeight = Math.ceil(canvas.height / gridSize);
+      
+      // Start from a different offset each time based on seed
+      const startCell = seed % (gridSize * gridSize);
+      
+      let cellIndex = startCell;
+      let attempts = 0;
+      const maxCells = gridSize * gridSize;
+      
+      while (selectedColors.length < count && attempts < maxCells * 2) {
+        const row = Math.floor(cellIndex / gridSize);
+        const col = cellIndex % gridSize;
         
-        // Check if this color is too similar to already selected ones
-        let isUnique = true;
-        for (const selected of selectedColors) {
-          const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
-          if (diff < 40) { // Colors are too similar
-            isUnique = false;
-            break;
+        const startX = col * cellWidth;
+        const endX = Math.min((col + 1) * cellWidth, canvas.width);
+        const startY = row * cellHeight;
+        const endY = Math.min((row + 1) * cellHeight, canvas.height);
+        
+        // Sample a random pixel from this cell
+        if (endX > startX && endY > startY) {
+          const randomX = startX + Math.floor(Math.random() * (endX - startX));
+          const randomY = startY + Math.floor(Math.random() * (endY - startY));
+          const idx = (randomY * canvas.width + randomX) * 4;
+          
+          // Check bounds
+          if (idx + 2 < data.length && data[idx + 3] >= 200) {
+            const color = [data[idx], data[idx + 1], data[idx + 2]];
+            const colorKey = color.join(',');
+            
+            // Check if this color is too similar to already selected ones
+            let isUnique = true;
+            for (const selected of selectedColors) {
+              const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
+              if (diff < 40) {
+                isUnique = false;
+                break;
+              }
+            }
+            
+            if (isUnique) {
+              selectedColors.push(color);
+            }
           }
         }
         
-        if (isUnique && !usedColors.has(colorKey)) {
-          selectedColors.push(color);
-          usedColors.add(colorKey);
+        cellIndex = (cellIndex + 1) % (gridSize * gridSize);
+        attempts++;
+      }
+      
+      // If we still don't have enough, pick random pixels
+      if (selectedColors.length < count) {
+        const remaining = count - selectedColors.length;
+        for (let i = 0; i < remaining && validPixels.length > 0; i++) {
+          const randomIdx = Math.floor(Math.random() * validPixels.length);
+          const color = validPixels[randomIdx];
+          
+          // Check uniqueness
+          let isUnique = true;
+          for (const selected of selectedColors) {
+            const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
+            if (diff < 40) {
+              isUnique = false;
+              break;
+            }
+          }
+          
+          if (isUnique) {
+            selectedColors.push(color);
+          }
         }
       }
       
-      // If we couldn't find enough unique colors, just pick random ones
+      // If still not enough, just take the first available
       if (selectedColors.length < count) {
-        while (selectedColors.length < count && validPixels.length > 0) {
-          const randomIdx = Math.floor(Math.random() * validPixels.length);
-          selectedColors.push(validPixels[randomIdx]);
-          validPixels.splice(randomIdx, 1);
+        for (let i = 0; i < validPixels.length && selectedColors.length < count; i++) {
+          selectedColors.push(validPixels[i]);
         }
       }
       
@@ -125,7 +183,9 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         }
         if (isSame) {
-          // Regenerate with different randomness
+          // Force a different extraction by incrementing seed and trying again
+          const currentSeed = extractionSeeds.get(img.src) || 0;
+          extractionSeeds.set(img.src, currentSeed + 1);
           colors = extractColorsFromCanvas(img, 5);
         }
       }
@@ -189,6 +249,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
           }
           if (isSame) {
+            const currentSeed = extractionSeeds.get(img.src) || 0;
+            extractionSeeds.set(img.src, currentSeed + 1);
             colors = extractColorsFromCanvas(corsImg, 5);
           }
         }
@@ -293,27 +355,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const dogColors = [
       [210, 180, 140], [139, 69, 19], [255, 255, 255], [0, 0, 0], [210, 160, 100],
       [180, 140, 90], [100, 80, 50], [230, 200, 160], [160, 120, 80], [200, 150, 100],
-      [190, 130, 80], [220, 170, 110], [140, 90, 40], [240, 210, 170], [170, 110, 70]
+      [190, 130, 80], [220, 170, 110], [140, 90, 40], [240, 210, 170], [170, 110, 70],
+      [250, 200, 150], [120, 85, 45], [160, 110, 60], [200, 140, 80], [150, 100, 50]
     ];
     const catColors = [
       [255, 255, 255], [100, 100, 100], [0, 0, 0], [255, 200, 150], [50, 50, 80],
       [80, 80, 80], [200, 150, 100], [255, 220, 180], [40, 40, 60], [120, 120, 120],
-      [60, 60, 90], [140, 140, 140], [220, 180, 140], [30, 30, 50], [90, 90, 110]
+      [60, 60, 90], [140, 140, 140], [220, 180, 140], [30, 30, 50], [90, 90, 110],
+      [240, 210, 170], [70, 70, 100], [160, 120, 80], [50, 50, 70], [110, 110, 130]
     ];
     const rabbitColors = [
       [255, 250, 240], [245, 230, 210], [230, 210, 180], [220, 190, 160], [210, 180, 150],
       [255, 248, 235], [240, 225, 205], [235, 215, 190], [225, 200, 170], [215, 195, 170],
-      [248, 235, 215], [238, 218, 195], [228, 205, 180], [218, 195, 175], [208, 185, 165]
+      [248, 235, 215], [238, 218, 195], [228, 205, 180], [218, 195, 175], [208, 185, 165],
+      [250, 240, 220], [242, 220, 195], [232, 210, 185], [222, 200, 175], [212, 190, 165],
+      [245, 235, 210], [235, 220, 195], [225, 210, 185]
     ];
     const snowColors = [
       [255, 255, 255], [240, 240, 240], [200, 200, 200], [150, 150, 150], [100, 150, 200],
       [230, 240, 255], [180, 200, 220], [200, 210, 230], [150, 170, 190], [120, 140, 160],
-      [245, 250, 255], [190, 210, 230], [160, 180, 200], [130, 150, 170], [110, 130, 150]
+      [245, 250, 255], [190, 210, 230], [160, 180, 200], [130, 150, 170], [110, 130, 150],
+      [220, 230, 240], [170, 190, 210], [140, 160, 180], [100, 120, 140], [80, 100, 120]
     ];
     const defaultColors = [
       [200, 200, 200], [150, 150, 150], [100, 100, 100], [50, 50, 50], [25, 25, 25],
       [180, 180, 180], [120, 120, 120], [80, 80, 80], [40, 40, 40], [10, 10, 10],
-      [160, 160, 160], [140, 140, 140], [90, 90, 90], [70, 70, 70], [30, 30, 30]
+      [160, 160, 160], [140, 140, 140], [90, 90, 90], [70, 70, 70], [30, 30, 30],
+      [190, 190, 190], [170, 170, 170], [130, 130, 130], [60, 60, 60], [20, 20, 20]
     ];
     
     // Helper to get random selection that's different from previous
@@ -336,9 +404,9 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         }
         
-        // If same, reshuffle and try again (up to 10 times)
+        // If same, reshuffle and try again (up to 20 times)
         let attempts = 0;
-        while (isSame && attempts < 10) {
+        while (isSame && attempts < 20) {
           const reshuffled = [...pool].sort(() => Math.random() - 0.5);
           selected = reshuffled.slice(0, count);
           
