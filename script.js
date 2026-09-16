@@ -52,31 +52,46 @@ document.addEventListener('DOMContentLoaded', function() {
       extractionSeeds.set(imgSrc, seed);
       
       // Use seed-based random selection to get different colors each time
-      // Sample from the ENTIRE image (including background) to capture all colors
+      // IMPORTANT: Sample from BOTH the subject AND the background
+      // We'll prioritize edge regions (likely background) first, then center
       const selectedColors = [];
       
-      // Strategy: divide image into regions and sample from each
-      // This ensures we get colors from different parts of the image
-      const regions = count * 2; // More regions than colors needed
-      const regionWidth = Math.ceil(canvas.width / regions);
+      // Strategy: Sample from edge regions first (where background is likely)
+      // Then fill in with other colors
+      // Edge regions: top, bottom, left, right borders
+      const edgeSamples = [];
+      const edgeWidth = Math.max(1, Math.floor(canvas.width * 0.1)); // 10% from each edge
+      const edgeHeight = Math.max(1, Math.floor(canvas.height * 0.1));
       
-      // Use seed to determine starting point for sampling
-      const startX = (seed % regions) * regionWidth;
+      // Top edge
+      for (let x = 0; x < canvas.width && edgeSamples.length < count * 2; x += Math.max(1, Math.floor(canvas.width / (count * 2)))) {
+        edgeSamples.push({ x, y: 0 });
+      }
+      // Bottom edge
+      for (let x = 0; x < canvas.width && edgeSamples.length < count * 2; x += Math.max(1, Math.floor(canvas.width / (count * 2)))) {
+        edgeSamples.push({ x, y: canvas.height - 1 });
+      }
+      // Left edge
+      for (let y = edgeHeight; y < canvas.height - edgeHeight && edgeSamples.length < count * 2; y += Math.max(1, Math.floor(canvas.height / (count * 2)))) {
+        edgeSamples.push({ x: 0, y });
+      }
+      // Right edge
+      for (let y = edgeHeight; y < canvas.height - edgeHeight && edgeSamples.length < count * 2; y += Math.max(1, Math.floor(canvas.height / (count * 2)))) {
+        edgeSamples.push({ x: canvas.width - 1, y });
+      }
       
-      let currentX = startX;
-      let attempts = 0;
-      const maxAttempts = regions * 3;
+      // Shuffle edge samples using seed
+      edgeSamples.sort((a, b) => {
+        const val = (seed * 997) % 1000;
+        return (val + a.x + a.y) - (val + b.x + b.y);
+      });
       
-      while (selectedColors.length < count && attempts < maxAttempts) {
-        // Pick a random Y position (full height)
-        const randomY = Math.floor(Math.random() * canvas.height);
-        const idx = (randomY * canvas.width + currentX) * 4;
-        
-        // Check bounds and opacity
+      // Sample from edges first
+      for (const point of edgeSamples) {
+        if (selectedColors.length >= count) break;
+        const idx = (point.y * canvas.width + point.x) * 4;
         if (idx + 2 < data.length && data[idx + 3] >= 200) {
           const color = [data[idx], data[idx + 1], data[idx + 2]];
-          
-          // Check if this color is too similar to already selected ones
           let isUnique = true;
           for (const selected of selectedColors) {
             const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
@@ -85,56 +100,76 @@ document.addEventListener('DOMContentLoaded', function() {
               break;
             }
           }
-          
           if (isUnique) {
             selectedColors.push(color);
           }
         }
-        
-        // Move to next region
-        currentX = (currentX + regionWidth) % canvas.width;
-        attempts++;
       }
       
-      // If we still don't have enough unique colors, sample more broadly
-      if (selectedColors.length < count) {
-        // Try sampling from corners and center for more diversity
-        const samplePoints = [
-          { x: 0, y: 0 }, // Top-left
-          { x: canvas.width - 1, y: 0 }, // Top-right
-          { x: 0, y: canvas.height - 1 }, // Bottom-left
-          { x: canvas.width - 1, y: canvas.height - 1 }, // Bottom-right
-          { x: Math.floor(canvas.width / 2), y: Math.floor(canvas.height / 2) }, // Center
-          { x: Math.floor(canvas.width / 4), y: Math.floor(canvas.height / 4) },
-          { x: Math.floor(canvas.width * 3/4), y: Math.floor(canvas.height / 4) },
-          { x: Math.floor(canvas.width / 4), y: Math.floor(canvas.height * 3/4) },
-          { x: Math.floor(canvas.width * 3/4), y: Math.floor(canvas.height * 3/4) }
-        ];
-        
-        for (const point of samplePoints) {
-          if (selectedColors.length >= count) break;
-          const idx = (point.y * canvas.width + point.x) * 4;
-          if (idx + 2 < data.length && data[idx + 3] >= 200) {
-            const color = [data[idx], data[idx + 1], data[idx + 2]];
-            let isUnique = true;
-            for (const selected of selectedColors) {
-              const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
-              if (diff < 40) {
-                isUnique = false;
-                break;
-              }
+      // If we still need more colors, sample from corners
+      const cornerPoints = [
+        { x: 0, y: 0 },
+        { x: canvas.width - 1, y: 0 },
+        { x: 0, y: canvas.height - 1 },
+        { x: canvas.width - 1, y: canvas.height - 1 }
+      ];
+      
+      for (const point of cornerPoints) {
+        if (selectedColors.length >= count) break;
+        const idx = (point.y * canvas.width + point.x) * 4;
+        if (idx + 2 < data.length && data[idx + 3] >= 200) {
+          const color = [data[idx], data[idx + 1], data[idx + 2]];
+          let isUnique = true;
+          for (const selected of selectedColors) {
+            const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
+            if (diff < 40) {
+              isUnique = false;
+              break;
             }
-            if (isUnique) {
-              selectedColors.push(color);
+          }
+          if (isUnique) {
+            selectedColors.push(color);
+          }
+        }
+      }
+      
+      // If still need more, sample from center regions
+      if (selectedColors.length < count) {
+        const centerX = Math.floor(canvas.width / 2);
+        const centerY = Math.floor(canvas.height / 2);
+        const centerRadius = Math.max(10, Math.min(canvas.width, canvas.height) * 0.3);
+        
+        for (let r = 0; r < 100 && selectedColors.length < count; r++) {
+          const angle = (r / 100) * Math.PI * 2;
+          const distance = Math.random() * centerRadius;
+          const x = Math.round(centerX + Math.cos(angle) * distance);
+          const y = Math.round(centerY + Math.sin(angle) * distance);
+          
+          if (x >= 0 && x < canvas.width && y >= 0 && y < canvas.height) {
+            const idx = (y * canvas.width + x) * 4;
+            if (idx + 2 < data.length && data[idx + 3] >= 200) {
+              const color = [data[idx], data[idx + 1], data[idx + 2]];
+              let isUnique = true;
+              for (const selected of selectedColors) {
+                const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
+                if (diff < 40) {
+                  isUnique = false;
+                  break;
+                }
+              }
+              if (isUnique) {
+                selectedColors.push(color);
+              }
             }
           }
         }
       }
       
-      // If still not enough, pick from validPixels with uniqueness check
+      // If still not enough, pick from all valid pixels
       if (selectedColors.length < count) {
-        for (let i = 0; i < validPixels.length && selectedColors.length < count; i++) {
-          const color = validPixels[i];
+        const shuffled = [...validPixels].sort(() => Math.random() - 0.5);
+        for (const color of shuffled) {
+          if (selectedColors.length >= count) break;
           let isUnique = true;
           for (const selected of selectedColors) {
             const diff = Math.abs(selected[0] - color[0]) + Math.abs(selected[1] - color[1]) + Math.abs(selected[2] - color[2]);
