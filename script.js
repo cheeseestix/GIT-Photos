@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', function() {
   document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d');
 
+  // Store previous palettes to ensure new ones are different
+  const previousPalettes = new Map();
+
   // Function to extract dominant colors from an image using canvas
   function extractColorsFromCanvas(img, count = 5) {
     // Set canvas dimensions to match image
@@ -103,12 +106,30 @@ document.addEventListener('DOMContentLoaded', function() {
     const alt = img.alt.toLowerCase();
     const src = img.src.toLowerCase();
     
-
-    
     // Method 1: Try canvas extraction on the original image (no CORS)
     let colors = extractColorsFromCanvas(img, 5);
     
     if (colors) {
+      // Check if this is different from previous palette for this image
+      const prevKey = previousPalettes.get(img.src);
+      if (prevKey) {
+        let isSame = true;
+        for (let i = 0; i < 5; i++) {
+          if (colors[i] && prevKey[i]) {
+            const c = colors[i].join(',');
+            const p = prevKey[i].join(',');
+            if (c !== p) {
+              isSame = false;
+              break;
+            }
+          }
+        }
+        if (isSame) {
+          // Regenerate with different randomness
+          colors = extractColorsFromCanvas(img, 5);
+        }
+      }
+      previousPalettes.set(img.src, colors);
       displayColors(colors, swatchContainer);
       img.setAttribute('data-colors-extracted', 'true');
       return;
@@ -118,30 +139,16 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof ColorThief !== 'undefined') {
       try {
         const colorThief = new ColorThief();
-        colors = colorThief.getPalette(img, 5);
+        const quality = Math.floor(Math.random() * 10) + 1; // Random quality 1-10 for more variation
+        colors = colorThief.getPalette(img, 5, quality);
         if (colors && colors.length === 5) {
+          previousPalettes.set(img.src, colors);
           displayColors(colors, swatchContainer);
           img.setAttribute('data-colors-extracted', 'true');
           return;
         }
       } catch (e) {
         console.log('Color Thief failed:', e);
-      }
-    }
-    
-    // Method 2b: Try Color Thief with different quality settings for variation
-    if (typeof ColorThief !== 'undefined') {
-      try {
-        const colorThief = new ColorThief();
-        const quality = Math.floor(Math.random() * 5) + 1; // Random quality 1-5
-        colors = colorThief.getPalette(img, 5, quality);
-        if (colors && colors.length === 5) {
-          displayColors(colors, swatchContainer);
-          img.setAttribute('data-colors-extracted', 'true');
-          return;
-        }
-      } catch (e) {
-        console.log('Color Thief with quality failed:', e);
       }
     }
     
@@ -167,6 +174,25 @@ document.addEventListener('DOMContentLoaded', function() {
       // Try canvas extraction with CORS image
       let colors = extractColorsFromCanvas(corsImg, 5);
       if (colors) {
+        // Check against previous palette
+        const prevKey = previousPalettes.get(img.src);
+        if (prevKey) {
+          let isSame = true;
+          for (let i = 0; i < 5; i++) {
+            if (colors[i] && prevKey[i]) {
+              const c = colors[i].join(',');
+              const p = prevKey[i].join(',');
+              if (c !== p) {
+                isSame = false;
+                break;
+              }
+            }
+          }
+          if (isSame) {
+            colors = extractColorsFromCanvas(corsImg, 5);
+          }
+        }
+        previousPalettes.set(img.src, colors);
         displayColors(colors, swatchContainer);
         img.setAttribute('data-colors-extracted', 'true');
         return;
@@ -176,9 +202,10 @@ document.addEventListener('DOMContentLoaded', function() {
       if (typeof ColorThief !== 'undefined') {
         try {
           const colorThief = new ColorThief();
-          const quality = Math.floor(Math.random() * 5) + 1;
+          const quality = Math.floor(Math.random() * 10) + 1; // More variation in quality
           colors = colorThief.getPalette(corsImg, 5, quality);
           if (colors && colors.length === 5) {
+            previousPalettes.set(img.src, colors);
             displayColors(colors, swatchContainer);
             img.setAttribute('data-colors-extracted', 'true');
             return;
@@ -262,45 +289,91 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let colors = [];
     
-    // Define color pools for each category
+    // Define color pools for each category - expanded with more variety
     const dogColors = [
       [210, 180, 140], [139, 69, 19], [255, 255, 255], [0, 0, 0], [210, 160, 100],
-      [180, 140, 90], [100, 80, 50], [230, 200, 160], [160, 120, 80], [200, 150, 100]
+      [180, 140, 90], [100, 80, 50], [230, 200, 160], [160, 120, 80], [200, 150, 100],
+      [190, 130, 80], [220, 170, 110], [140, 90, 40], [240, 210, 170], [170, 110, 70]
     ];
     const catColors = [
       [255, 255, 255], [100, 100, 100], [0, 0, 0], [255, 200, 150], [50, 50, 80],
-      [80, 80, 80], [200, 150, 100], [255, 220, 180], [40, 40, 60], [120, 120, 120]
+      [80, 80, 80], [200, 150, 100], [255, 220, 180], [40, 40, 60], [120, 120, 120],
+      [60, 60, 90], [140, 140, 140], [220, 180, 140], [30, 30, 50], [90, 90, 110]
     ];
     const rabbitColors = [
       [255, 250, 240], [245, 230, 210], [230, 210, 180], [220, 190, 160], [210, 180, 150],
-      [255, 248, 235], [240, 225, 205], [235, 215, 190], [225, 200, 170], [215, 195, 170]
+      [255, 248, 235], [240, 225, 205], [235, 215, 190], [225, 200, 170], [215, 195, 170],
+      [248, 235, 215], [238, 218, 195], [228, 205, 180], [218, 195, 175], [208, 185, 165]
     ];
     const snowColors = [
       [255, 255, 255], [240, 240, 240], [200, 200, 200], [150, 150, 150], [100, 150, 200],
-      [230, 240, 255], [180, 200, 220], [200, 210, 230], [150, 170, 190], [120, 140, 160]
+      [230, 240, 255], [180, 200, 220], [200, 210, 230], [150, 170, 190], [120, 140, 160],
+      [245, 250, 255], [190, 210, 230], [160, 180, 200], [130, 150, 170], [110, 130, 150]
     ];
     const defaultColors = [
       [200, 200, 200], [150, 150, 150], [100, 100, 100], [50, 50, 50], [25, 25, 25],
-      [180, 180, 180], [120, 120, 120], [80, 80, 80], [40, 40, 40], [10, 10, 10]
+      [180, 180, 180], [120, 120, 120], [80, 80, 80], [40, 40, 40], [10, 10, 10],
+      [160, 160, 160], [140, 140, 140], [90, 90, 90], [70, 70, 70], [30, 30, 30]
     ];
     
-    // Helper to get random selection
-    const getRandomColors = (pool, count) => {
+    // Helper to get random selection that's different from previous
+    const getRandomColors = (pool, count, imgSrc) => {
       const shuffled = [...pool].sort(() => Math.random() - 0.5);
-      return shuffled.slice(0, count);
+      let selected = shuffled.slice(0, count);
+      
+      // Check if this is the same as the previous palette for this image
+      const prevKey = previousPalettes.get(imgSrc);
+      if (prevKey) {
+        let isSame = true;
+        for (let i = 0; i < count; i++) {
+          if (selected[i] && prevKey[i]) {
+            const s = selected[i].join(',');
+            const p = prevKey[i].join(',');
+            if (s !== p) {
+              isSame = false;
+              break;
+            }
+          }
+        }
+        
+        // If same, reshuffle and try again (up to 10 times)
+        let attempts = 0;
+        while (isSame && attempts < 10) {
+          const reshuffled = [...pool].sort(() => Math.random() - 0.5);
+          selected = reshuffled.slice(0, count);
+          
+          isSame = true;
+          for (let i = 0; i < count; i++) {
+            if (selected[i] && prevKey[i]) {
+              const s = selected[i].join(',');
+              const p = prevKey[i].join(',');
+              if (s !== p) {
+                isSame = false;
+                break;
+              }
+            }
+          }
+          attempts++;
+        }
+      }
+      
+      // Store this palette for this image
+      previousPalettes.set(imgSrc, selected);
+      
+      return selected;
     };
     
     // Try to infer colors from alt text or URL
     if (alt.includes('dog') || alt.includes('puppy') || src.includes('dog')) {
-      colors = useRandom ? getRandomColors(dogColors, 5) : dogColors.slice(0, 5);
+      colors = useRandom ? getRandomColors(dogColors, 5, img.src) : dogColors.slice(0, 5);
     } else if (alt.includes('cat') || src.includes('cat')) {
-      colors = useRandom ? getRandomColors(catColors, 5) : catColors.slice(0, 5);
+      colors = useRandom ? getRandomColors(catColors, 5, img.src) : catColors.slice(0, 5);
     } else if (alt.includes('rabbit') || alt.includes('bunny') || src.includes('rabbit')) {
-      colors = useRandom ? getRandomColors(rabbitColors, 5) : rabbitColors.slice(0, 5);
+      colors = useRandom ? getRandomColors(rabbitColors, 5, img.src) : rabbitColors.slice(0, 5);
     } else if (alt.includes('snow') || src.includes('snow')) {
-      colors = useRandom ? getRandomColors(snowColors, 5) : snowColors.slice(0, 5);
+      colors = useRandom ? getRandomColors(snowColors, 5, img.src) : snowColors.slice(0, 5);
     } else {
-      colors = useRandom ? getRandomColors(defaultColors, 5) : defaultColors.slice(0, 5);
+      colors = useRandom ? getRandomColors(defaultColors, 5, img.src) : defaultColors.slice(0, 5);
     }
     
     displayColors(colors, container);
